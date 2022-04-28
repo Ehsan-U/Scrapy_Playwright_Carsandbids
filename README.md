@@ -1,5 +1,5 @@
-# carbandbids
-Crawler for carsandbids
+# carbandbids 
+Scrapy_Playwright based Crawler for carsandbids 
 ### create virtual environment & install requirements
 `pip3 install virtualenv`</br>
 `virtualenv venv`</br>
