@@ -3,122 +3,131 @@ import re
 import random
 from urllib.parse import urljoin
 import scrapy
+from scrapy_playwright.page import PageMethod
 from scrapy.selector import Selector
 from rich.console import Console
 from scrapy.loader import ItemLoader
 from ..items import CarsandbidsItem
-from bs4 import BeautifulSoup
 
 class CarsSpider(scrapy.Spider):
     data = {}
-    not_required = ['seller','bodystyle','sellertype','drivetrain']
-    cookies = ''
+    not_required = ['seller','body style','seller type','drivetrain']
     name = 'newcars'
-    ids = {}
+    urls = set()
     counter = 0
-    allowed_domains = ['carsandbids.com','127.0.0.1']
+    page_count = 1
+    allowed_domains = ['carsandbids.com']
     con = Console()
     def start_requests(self):
-        # request to selenium API endpoint
-        url = "http://127.0.0.1:8081/new?url=https://carsandbids.com/"
-        yield scrapy.Request(url,callback=self.parse)
+        url = "https://carsandbids.com/"
+        yield scrapy.Request(
+            url,callback=self.parse,
+            meta={"playwright":True,"playwright_include_page":True,"playwright_page_methods":[
+                PageMethod("wait_for_selector","//li[@class='auction-item ']"),
+            ]},
+            errback=self.errback,
+            )
 
-    def parse(self,response):   
-        body = response.body
-        self.data = json.loads(body).get("resp")
-        count = int(self.data.get("count"))
-        for i in range(count):
-            self.ids[self.data["auctions"][i].get("id")] = self.data["auctions"][i].get("title")
-        # build urls for each car
-        # send request to each car url
-        for key,val,i in zip(self.ids.keys(),self.ids.values(),range(count)):
-            val = val.replace(' ','-')
-            car = f'https://carsandbids.com/auctions/{key}/{val}'
-            url = f'http://127.0.0.1:8081/page?url={car}'
-            yield scrapy.Request(url,callback=self.custom_parse,meta={'i':i,'source':car})
-            
-    # extracting required fields from response (individual car page)
-    def custom_parse(self,response):
+    # parse main page & extract url of each car page & also handle pagination
+    async def parse(self,response):
+        page = response.meta.get("playwright_page")
+        source = await page.content()
+        sel = Selector(text=source)
+        for link in sel.xpath("//div[@class='auction-title']/a/@href").getall():
+            link = response.urljoin(link)
+            self.urls.add(link)
+        self.con.print(len(self.urls))
+        await page.close()
+        self.page_count+=1
+        if self.page_count <=3:
+                url = f"https://carsandbids.com/?page={self.page_count}"
+                yield scrapy.Request(
+                    url,callback=self.parse,
+                    meta={"playwright":True,"playwright_include_page":True,"playwright_page_methods":[
+                        PageMethod("wait_for_selector","//li[@class='auction-item ']"),
+                    ]},
+                    errback=self.errback,
+                    )
+        else:
+            for url in self.urls:
+                yield scrapy.Request(
+                url,callback=self.parse_car,
+                meta={"playwright":True,"playwright_include_page":True,"playwright_page_methods":[
+                    PageMethod("wait_for_selector","//div[@class='quick-facts']"),
+                ]},
+                errback=self.errback,
+                )
+
+    # parsing car page
+    async def parse_car(self,response):
         try:
-            page_data = json.loads(response.text)[0]
-            sel = Selector(text=response.text)
-            loader = ItemLoader(item=CarsandbidsItem(),response=response,selector=sel)
-            i = response.request.meta.get("i")
-            
-            Year = self.data['auctions'][i].get("title")[:5]
-            Make = page_data.get("listing").get("make")
-            Model = page_data.get("listing").get("model")
-            Mileage = page_data.get("listing").get("mileage")
-            if Mileage:
-                Mileage = str(Mileage)
+            loader = ItemLoader(item=CarsandbidsItem(),response=response)
+            sel = Selector(text=response.body)
+            year = sel.xpath("//div[@class='auction-title']/h1/text()").get()[:4]
+            raw_title = sel.xpath("//div[@class='auction-title']/h1/text()").get()
+            raw_subtitle = sel.xpath("//div[@class='d-md-flex justify-content-between flex-wrap']/h2/text()").get()
+            if sel.xpath("//div[@class='d-md-flex justify-content-between flex-wrap']//h2/span").get():
+                no_reserver = "True"
             else:
-                Mileage = ''
-                raw_miles = self.data['auctions'][i].get("mileage")
-                for c in raw_miles:
-                    if c.isdigit():
-                        Mileage += c
-            VIN = page_data.get("listing").get("vin")
-            Title_Status = page_data.get("listing").get("title_status")
-            Location = page_data.get("listing").get("location")
-            Engine = page_data.get("listing").get("engine")
-            T_bool = page_data.get("listing").get("transmission")
-            if T_bool == 1:
-                Transmission = f'Automatic {page_data.get("listing").get("transmission_details")}'
-            else:
-                Transmission = f'Manual {page_data.get("listing").get("transmission_details")}'
-            ExteriorColor = page_data.get("listing").get("exterior_color")
-            InteriorColor = page_data.get("listing").get("interior_color")
-
-            
-            price = page_data.get("finance").get("disclosure").get("price")
-            no_reserver = str(self.data["auctions"][i].get('no_reserve'))
-            raw_title = self.data['auctions'][i].get("title")
-            raw_subtitle = self.data['auctions'][i].get("sub_title")
-            raw_miles = self.data['auctions'][i].get("mileage")
-            base_url = f'https://{self.data["auctions"][i].get("main_photo").get("base_url")}'
-            rel_path = self.data['auctions'][i].get("main_photo").get("path")
-            main_photo = urljoin(base_url,rel_path)        
-            url_source = response.request.meta.get("source")
-            url = response.request.meta.get("source")
-            images = ''
-            for ex_image,in_image in zip(page_data.get("listing").get("photos").get("exterior"),page_data.get("listing").get("photos").get("interior")):
-                images += f'https://media.carsandbids.com/{ex_image.get("link")},'
-                images += f'https://media.carsandbids.com/{in_image.get("link")},'
-            km = "kilometer"
-            if km in page_data.get("listing").get("sections").get("doug") or km in page_data.get("listing").get("sections").get("equipment") or km in page_data.get("listing").get("sections").get("highlights"):
+                no_reserver = "False"
+            source = response.url
+            price = sel.xpath("//span[@class='value']/span[@class='bid-value']/text()").get()
+            main_image = sel.xpath("//div[@class='preload-wrap main loaded']/img/@src").get()
+            images = ",".join(sel.xpath("//div[@class='preload-wrap  loaded']/img/@src").getall())
+            if "kilometers" in sel.xpath("//div[@class='detail-wrapper']").get().lower():
                 kilometers = "True"
             else:
                 kilometers = "False"
-            raw_Mileage = self.data['auctions'][i].get("mileage")
-            if "TMU" in raw_Mileage:
-                tmu = 'True'
-            else:
-                tmu = 'False'
-        
-            loader.add_value("Year",Year)
-            loader.add_value("Make",Make)
-            loader.add_value("Model",Model)
-            loader.add_value("Mileage",Mileage)
-            loader.add_value("VIN",VIN)
-            loader.add_value("Title_Status",Title_Status)
-            loader.add_value("Location",Location)
-            loader.add_value("Engine",Engine)
-            loader.add_value("Transmission",Transmission)
-            loader.add_value("ExteriorColor",ExteriorColor)
-            loader.add_value("InteriorColor",InteriorColor) 
+            dt_tags = sel.xpath("//div[@class='quick-facts']//dt")
+            dd_tags = sel.xpath("//div[@class='quick-facts']//dd")
+            for dt,dd in zip(dt_tags,dd_tags):
+                if dd.xpath(".//a"):
+                    if not dt.xpath(".//text()").get().lower() in self.not_required:
+                        loader.add_value(dt.xpath(".//text()").get(),dd.xpath(".//a/text()").get())
+                else:
+                    if not dt.xpath(".//text()").get().lower() in self.not_required:
+                        if dt.xpath(".//text()").get() == "Mileage":
+                            raw_miles = dd.xpath(".//text()").get()
+                            if "TMU" in raw_miles:
+                                tmu = "True"
+                            else:
+                                tmu = "False"
+                            Mileage = ''
+                            miles_characters = list(dd.xpath(".//text()").get())
+                            for c in miles_characters:
+                                if c.isdigit():
+                                    Mileage +=c
+                            # data["Mileage"] = Mileage
+                            loader.add_value('Mileage',Mileage)
+                        elif "title" in dt.xpath(".//text()").get().lower():
+                            loader.add_value("Title_Status",dd.xpath(".//text()").get())
+                        elif "exterior" in dt.xpath(".//text()").get().lower():
+                            loader.add_value("ExteriorColor",dd.xpath(".//text()").get())
+                        elif "interior" in dt.xpath(".//text()").get().lower():
+                            loader.add_value("InteriorColor",dd.xpath(".//text()").get())
+                        else:
+                            loader.add_value(dt.xpath(".//text()").get(), dd.xpath(".//text()").get())
+    
+            loader.add_value("Year",year)
             loader.add_value("Price",price)
             loader.add_value("Kilometers",kilometers)
             loader.add_value("TMU",tmu)
             loader.add_value("No_Reserver",no_reserver)
-            loader.add_value("URL",url_source)
+            loader.add_value("URL",response.url)
             loader.add_value("Raw_Title",raw_title)
             loader.add_value("Raw_Subtitle",raw_subtitle)
             loader.add_value("Raw_Miles",raw_miles)
-            loader.add_value("Source",url_source)
-            loader.add_value("Main_Image",main_photo)
+            loader.add_value("Source",response.url)
+            loader.add_value("Main_Image",main_image)
             loader.add_value("All_Images",images)
-            self.counter +=1
+            page = response.meta.get("playwright_page")
+            await page.close()
+            self.counter+=1
+            self.con.print(f"Processed Items: {self.counter}, Remaining Items: {len(self.urls)-self.counter}")
             yield loader.load_item()
-            self.con.print("[bold green]Processed Items: ",self.counter," Remaining:",self.data['total']-self.counter)
+        # self.con.print(data) 
         except:
             self.con.print_exception()
+    async def errback(self,failure):
+        page = failure.request.meta["playwright_page"]
+        await page.close()

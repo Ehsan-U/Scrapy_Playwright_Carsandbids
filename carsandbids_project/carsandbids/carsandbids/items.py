@@ -8,7 +8,6 @@ from itemloaders.processors import TakeFirst
 
 class CarsandbidsItem(scrapy.Item):
     # define the fields for your item here like:
-    Year = scrapy.Field(output_processor=TakeFirst())
     Make = scrapy.Field(output_processor=TakeFirst())
     Model = scrapy.Field(output_processor=TakeFirst())
     Mileage = scrapy.Field(output_processor=TakeFirst())
@@ -19,6 +18,7 @@ class CarsandbidsItem(scrapy.Item):
     Transmission = scrapy.Field(output_processor=TakeFirst())
     ExteriorColor = scrapy.Field(output_processor=TakeFirst())
     InteriorColor = scrapy.Field(output_processor=TakeFirst())
+    Year = scrapy.Field(output_processor=TakeFirst())
     Price = scrapy.Field(output_processor=TakeFirst())
     Kilometers = scrapy.Field(output_processor=TakeFirst())
     TMU = scrapy.Field(output_processor=TakeFirst())

@@ -15,15 +15,23 @@ NEWSPIDER_MODULE = 'carsandbids.spiders'
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
 USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.88 Safari/537.36'
+# USER_AGENT = None
 # USER_AGENT = ' '
 
 # # playwright
-# DOWNLOAD_HANDLERS = {
-#     "http": "scrapy_playwright.handler.ScrapyPlaywrightDownloadHandler",
-#     "https": "scrapy_playwright.handler.ScrapyPlaywrightDownloadHandler",
-# }
+DOWNLOAD_HANDLERS = {
+    "http": "scrapy_playwright.handler.ScrapyPlaywrightDownloadHandler",
+    "https": "scrapy_playwright.handler.ScrapyPlaywrightDownloadHandler",
+}
 
-# TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
+TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
+PLAYWRIGHT_LAUNCH_OPTIONS = {
+    "proxy": {
+        "server": "http://p.webshare.io:80",
+        "username": "hjdkysch-rotate",
+        "password": "iwfapn45qbcm",
+    },
+}
 # Obey robots.txt rules
 ROBOTSTXT_OBEY = False
 
@@ -98,7 +106,7 @@ AUTOTHROTTLE_ENABLED = True
 # Enable and configure HTTP caching (disabled by default)
 # See https://docs.scrapy.org/en/latest/topics/downloader-middleware.html#httpcache-middleware-settings
 # HTTPCACHE_ENABLED = True
-#HTTPCACHE_EXPIRATION_SECS = 0
+# HTTPCACHE_EXPIRATION_SECS = 2
 #HTTPCACHE_DIR = 'httpcache'
 #HTTPCACHE_IGNORE_HTTP_CODES = []
 #HTTPCACHE_STORAGE = 'scrapy.extensions.httpcache.FilesystemCacheStorage'

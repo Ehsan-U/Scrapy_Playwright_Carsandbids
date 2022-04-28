@@ -1,0 +1,12 @@
+Alt-Svc: h3=":443"; ma=86400, h3-29=":443"; ma=86400
+Apigw-Requestid: RSjnRiwdPHcEJDg=
+Cf-Cache-Status: DYNAMIC
+Cf-Ray: 702f963f7ceb6955-FRA
+Content-Type: text/html
+Date: Thu, 28 Apr 2022 11:51:36 GMT
+Expect-Ct: max-age=604800, report-uri="https://report-uri.cloudflare.com/cdn-cgi/beacon/expect-ct"
+Server: cloudflare
+Via: 1.1 3199fed6c4260c9448326645d333530a.cloudfront.net (CloudFront)
+X-Amz-Cf-Id: saZPAOqIwbag36T_MkhRFmVlOFLHu-38shra8uP8iTC9nInMspmtpw==
+X-Amz-Cf-Pop: FRA56-P7
+X-Cache: Miss from cloudfront
