@@ -123,7 +123,7 @@ class CarsSpider(scrapy.Spider):
             page = response.meta.get("playwright_page")
             await page.close()
             self.counter+=1
-            self.con.print(f"Processed Items: {self.counter}, Remaining Items: {len(self.urls)-self.counter}")
+            self.con.print(f"[+] [bold green]]Processed Items: [bold cyan]{self.counter},[bold green] Remaining Items: [bold cyan]{len(self.urls)-self.counter}")
             yield loader.load_item()
         # self.con.print(data) 
         except:
