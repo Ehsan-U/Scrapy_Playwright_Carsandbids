@@ -25,13 +25,7 @@ DOWNLOAD_HANDLERS = {
 }
 
 TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
-PLAYWRIGHT_LAUNCH_OPTIONS = {
-    "proxy": {
-        "server": "http://p.webshare.io:80",
-        "username": "hjdkysch-rotate",
-        "password": "iwfapn45qbcm",
-    },
-}
+
 # Obey robots.txt rules
 ROBOTSTXT_OBEY = False
 
